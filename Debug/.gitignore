@@ -1,0 +1,8 @@
+/library/
+/makefile
+/mbed/
+/objects.list
+/objects.mk
+/ros_lib_kinetic/
+/sources.mk
+/subdir.mk

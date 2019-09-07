@@ -1002,4 +1002,5 @@
 			<resource resourceType="PROJECT" workspacePath="/MDD_L432KC"/>
 		</configuration>
 	</storageModule>
+	<storageModule moduleId="org.eclipse.cdt.internal.ui.text.commentOwnerProjectMappings"/>
 </cproject>

@@ -9,10 +9,10 @@ ldclean:
 linker-script-debug.ld: ../mbed/TARGET_NUCLEO_L432KC/TOOLCHAIN_GCC_ARM/STM32L432XX.ld
 	$(PREPROC_CMD) -DMBED_DEBUG -DMBED_TRAP_ERRORS_ENABLED=1 -Wl,-n -Wl,--start-group -lstdc++ -lsupc++ -lm -lc -lgcc -lnosys -Wl,--end-group $< -o $@
 
-MDD_L432KC-debug.elf: linker-script-debug.ld
+MDD_Master-debug.elf: linker-script-debug.ld
 
 linker-script-release.ld: ../mbed/TARGET_NUCLEO_L432KC/TOOLCHAIN_GCC_ARM/STM32L432XX.ld
 	$(PREPROC_CMD) -DNDEBUG -Wl,-n -Wl,--start-group -lstdc++ -lsupc++ -lm -lc -lgcc -lnosys -Wl,--end-group $< -o $@
 
-MDD_L432KC-release.elf: linker-script-release.ld
+MDD_Master-release.elf: linker-script-release.ld
 

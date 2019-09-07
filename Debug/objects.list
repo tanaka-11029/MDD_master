@@ -1,6 +1,7 @@
 "library/gy521.o"
 "library/neopixel.o"
 "library/rotary_inc.o"
+"library/scrp_master.o"
 "library/scrp_slave.o"
 "main.o"
 "ros_lib_kinetic/BufferedSerial/Buffer/MyBuffer.o"
