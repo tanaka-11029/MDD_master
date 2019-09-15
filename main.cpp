@@ -138,7 +138,7 @@ int main() {
 	nh.advertise(start);
 	start_switch.mode(PullUp);
 	start_switch.fall(&start_fall);
-	pot.data_length = 4;
+	pot.data_length = 2;
 	pot.data = (float*) malloc(sizeof(float) * pot.data_length);
 	safe();
 	servo1.period_ms(20);
@@ -155,7 +155,7 @@ int main() {
 	uint8_t slit_up;
 	uint8_t status = 0;
 	Timer loop;
-	if(!slit_up1){
+	if (!slit_up1) {
 		spread = 1;
 	}
 	loop.start();
@@ -171,7 +171,7 @@ int main() {
 					if (on_flag[0]) {
 						if (slit_towel1.read()) {
 							master.send(15, 2,
-									50 * (towel_arm_goal == 1 ? -1 : 1));
+									50 * (towel_arm_goal == 1 ? 1 : -1));
 						} else {
 							master.send(15, 2, 0);
 							towel_arm[0] = towel_arm_goal;
@@ -184,7 +184,7 @@ int main() {
 						} else if (!slit_towel1.read()) {
 							off_flag[0] = true;
 						}
-						master.send(15, 2, 50 * (towel_arm_goal == 1 ? 1 : -1));
+						master.send(15, 2, 50 * (towel_arm_goal == 1 ? -1 : 1));
 					}
 				}
 			} else if (count == 2) {
@@ -195,7 +195,7 @@ int main() {
 					if (on_flag[1]) {
 						if (slit_towel2.read()) {
 							master.send(15, 3,
-									50 * (towel_arm_goal == 1 ? 1 : -1));
+									50 * (towel_arm_goal == 1 ? -1 : 1));
 						} else {
 							master.send(15, 3, 0);
 							towel_arm[1] = towel_arm_goal;
@@ -207,7 +207,7 @@ int main() {
 							on_flag[1] = true;
 						} else {
 							master.send(15, 3,
-									50 * (towel_arm_goal == 1 ? -1 : 1));
+									50 * (towel_arm_goal == 1 ? 1 : -1));
 						}
 					}
 				}
@@ -223,9 +223,8 @@ int main() {
 							spread = 0;
 							moving = false;
 							status &= 0b11111011;
-							servo1.pulsewidth_us(1450);//ロックを緩めておく
+							servo1.pulsewidth_us(1450); //ロックを緩めておく
 							servo2.pulsewidth_us(1450);
-							wait(1);
 							lock[0] = true;
 							lock[1] = true;
 						} else {
@@ -234,6 +233,7 @@ int main() {
 								servo2.pulsewidth_us(2300);
 								lock[0] = false;
 								lock[1] = false;
+								wait(0.5);
 							}
 							if (slit_up == 1) {
 								moving = true;
@@ -247,6 +247,8 @@ int main() {
 								spread = 1;
 								moving = false;
 								status &= 0b11111011;
+								servo2.pulsewidth_us(1450);
+								lock[1] = true;
 							}
 						} else {
 							if (!lock[0] || lock[1]) {
@@ -254,13 +256,14 @@ int main() {
 								servo2.pulsewidth_us(2300); //サーボ2個め（下に残る方）
 								lock[0] = true;
 								lock[1] = false;
+								wait(0.5);
 							}
 							if (spread == 0) {
 								master.send(15, 4, -250); //上昇
 							} else if (spread == 2) {
 								master.send(15, 4, 100); //下降
 							}
-							if(slit_up == 0){
+							if (slit_up == 0) {
 								moving = true;
 							}
 						}
@@ -278,22 +281,24 @@ int main() {
 								servo2.pulsewidth_us(1450);
 								lock[0] = true;
 								lock[1] = true;
+								wait(0.5);
 							}
 							if (slit_up == 1 && spread == 0) {
 								spread = 1;
-							}else if(spread == 1 && slit_up == 0){
+							} else if (spread == 1 && slit_up == 0) {
 								moving = true;
 							}
 							master.send(15, 4, -250);
 						}
 					}
-				} else if (slit_up == 1) {
+				} else if (slit_up > 0) {
 					master.send(15, 4, 0);
 				} else if (spread > 0) {
 					master.send(15, 4, -150);
 				}
 			} else if (count == 4) {
-				if (!open_order || potentiometer > 0.90 || potentiometer < 0.01) { //0.0144~ 0.0114
+				if (potentiometer > 0.90 || potentiometer < 0.01
+						|| !open_order) { //0.0144~ 0.0114
 				} else if (sheet_open) {
 					if (potentiometer < 0.0144) {
 						master.send(15, 5, 50);
@@ -330,10 +335,8 @@ int main() {
 			msg.data = status + (spread << 8);
 			pub.publish(&msg);
 
-			pot.data[0] = slit_up1;
-			pot.data[1] = slit_up2;
-			pot.data[2] = slit_up;
-			pot.data[3] = moving;
+			pot.data[0] = slit_up;
+			pot.data[1] = moving;
 			potato.publish(&pot);
 		}
 	}
