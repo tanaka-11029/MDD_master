@@ -107,6 +107,10 @@ void sendSerial(const std_msgs::Int32 &msg) {
 		case 5:
 			solenoid(data);
 			break;
+		case 6:
+			spread = data;
+			spread_goal = spread;
+			break;
 		}
 	} else {
 		master.send(id, cmd, data);
@@ -138,7 +142,7 @@ int main() {
 	nh.advertise(start);
 	start_switch.mode(PullUp);
 	start_switch.fall(&start_fall);
-	pot.data_length = 2;
+	pot.data_length = 3;
 	pot.data = (float*) malloc(sizeof(float) * pot.data_length);
 	safe();
 	servo1.period_ms(20);
@@ -155,9 +159,9 @@ int main() {
 	uint8_t slit_up;
 	uint8_t status = 0;
 	Timer loop;
-	if (!slit_up1) {
+	/*if (!slit_up1) {
 		spread = 1;
-	}
+	}*/
 	loop.start();
 	while (true) {
 		nh.spinOnce();
@@ -184,7 +188,7 @@ int main() {
 						} else if (!slit_towel1.read()) {
 							off_flag[0] = true;
 						}
-						master.send(15, 2, 50 * (towel_arm_goal == 1 ? -1 : 1));
+						master.send(15, 2, 120 * (towel_arm_goal == 1 ? -1 : 1));
 					}
 				}
 			} else if (count == 2) {
@@ -207,7 +211,7 @@ int main() {
 							on_flag[1] = true;
 						} else {
 							master.send(15, 3,
-									50 * (towel_arm_goal == 1 ? 1 : -1));
+									120 * (towel_arm_goal == 1 ? 1 : -1));
 						}
 					}
 				}
@@ -243,6 +247,8 @@ int main() {
 					} else if (spread_goal == 1) {
 						if (moving) {
 							if (slit_up == 1) {
+								master.send(15, 4, 50);
+							}else if(slit_up == 0){
 								master.send(15, 4, 0);
 								spread = 1;
 								moving = false;
@@ -298,9 +304,9 @@ int main() {
 				}
 			} else if (count == 4) {
 				if (potentiometer > 0.90 || potentiometer < 0.01
-						|| !open_order) { //0.0144~ 0.0114
+						|| !open_order) { //0.03~ 0.02
 				} else if (sheet_open) {
-					if (potentiometer < 0.0144) {
+					if (potentiometer < 0.03) {
 						master.send(15, 5, 50);
 						if (!(status & 0b00001000)) {
 							status |= 0b00001000;
@@ -313,7 +319,7 @@ int main() {
 						}
 					}
 				} else {
-					if (potentiometer > 0.012) {
+					if (potentiometer > 0.02) {
 						master.send(15, 5, -50);
 						if (!(status & 0b00001000)) {
 							status |= 0b00001000;
@@ -337,6 +343,7 @@ int main() {
 
 			pot.data[0] = slit_up;
 			pot.data[1] = moving;
+			pot.data[2] = potentiometer;
 			potato.publish(&pot);
 		}
 	}
