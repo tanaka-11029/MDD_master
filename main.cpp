@@ -125,7 +125,7 @@ void sendSerial(const std_msgs::Int32 &msg) {
 	}
 }
 
-std_msgs::Int32 msg;
+std_msgs::Int16 msg;
 std_msgs::Float32MultiArray pot;
 std_msgs::Bool /*limit_msg, */start_msg;
 ros::Subscriber<std_msgs::Int32> mdd("motor_serial", &sendSerial);
