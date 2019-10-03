@@ -3,6 +3,7 @@
 #include "library/rotary_inc.hpp"
 #include "ros.h"
 #include "std_msgs/Int32.h"
+#include "std_msgs/Int16.h"
 #include "std_msgs/Bool.h"
 #include "std_msgs/Float32MultiArray.h"
 #define MAXPWM 250
@@ -27,11 +28,12 @@ InterruptIn start_switch(PB_0); //スタート
 
 //DigitalOut led1(PB_7);
 
-int spread = 0; //0:展開前　1:第一展開　2:第二展開
-int spread_goal = 0;
+int8_t spread = 0; //0:展開前　1:第一展開　2:第二展開
+int8_t spread_goal = 0;
 bool towel_arm_goal = false; //1:展開　2:戻す
 bool sheet_open = false;
 bool lock[2] = { false, false };
+bool towel_order[2] = { false, false };
 bool open_order = false;
 
 //const PinName rotarypin[2] = {PA_0,PA_4};
@@ -96,6 +98,8 @@ void sendSerial(const std_msgs::Int32 &msg) {
 			break;
 		case 2:
 			towel_arm_goal = (bool) data;
+			towel_order[0] = true;
+			towel_order[1] = true;
 			break;
 		case 3:
 			spread_goal = data;
@@ -111,6 +115,10 @@ void sendSerial(const std_msgs::Int32 &msg) {
 			spread = data;
 			spread_goal = spread;
 			break;
+		case 255:
+			solenoid(0);
+			master.send(255, 255, 0);
+			break;
 		}
 	} else {
 		master.send(id, cmd, data);
@@ -119,15 +127,15 @@ void sendSerial(const std_msgs::Int32 &msg) {
 
 std_msgs::Int32 msg;
 std_msgs::Float32MultiArray pot;
-std_msgs::Bool limit_msg, start_msg;
+std_msgs::Bool /*limit_msg, */start_msg;
 ros::Subscriber<std_msgs::Int32> mdd("motor_serial", &sendSerial);
 ros::Publisher pub("mechanism_status", &msg);
 ros::Publisher potato("potato", &pot);
-ros::Publisher limit_pub("clip_limit", &limit_msg);
+//ros::Publisher limit_pub("clip_limit", &limit_msg);
 ros::Publisher start("start_switch", &start_msg);
 
 void start_fall() {
-	start_msg.data = start_switch.read();
+	start_msg.data = !start_switch.read();
 	start.publish(&start_msg);
 }
 
@@ -138,7 +146,7 @@ int main() {
 	nh.subscribe(mdd);
 	nh.advertise(pub);
 	nh.advertise(potato);
-	nh.advertise(limit_pub);
+	//nh.advertise(limit_pub);
 	nh.advertise(start);
 	start_switch.mode(PullUp);
 	start_switch.fall(&start_fall);
@@ -152,23 +160,21 @@ int main() {
 	slit_up1.mode(PullDown);
 	slit_up2.mode(PullDown);
 	bool on_flag[2] = { false, false };
-	bool off_flag[2] = { false, false };
-	bool towel_arm[2] = { false, false };
 	bool moving = false;
 	int count = 1;
 	uint8_t slit_up;
 	uint8_t status = 0;
 	Timer loop;
 	/*if (!slit_up1) {
-		spread = 1;
-	}*/
+	 spread = 1;
+	 }*/
 	loop.start();
 	while (true) {
 		nh.spinOnce();
 		if (loop.read_ms() > 20) {
 			loop.reset();
 			if (count == 1) {
-				if (towel_arm[0] != towel_arm_goal) { //右側
+				if (towel_order[0]) { //右側
 					if (!(status & 0b00000001)) {
 						status |= 0b00000001;
 					}
@@ -178,21 +184,21 @@ int main() {
 									50 * (towel_arm_goal == 1 ? 1 : -1));
 						} else {
 							master.send(15, 2, 0);
-							towel_arm[0] = towel_arm_goal;
+							towel_order[0] = false;
 							on_flag[0] = false;
 							status &= 0b11111110;
 						}
 					} else {
-						if (slit_towel1.read() && off_flag[0]) {
+						if (slit_towel1.read()) {
 							on_flag[0] = true;
 						} else if (!slit_towel1.read()) {
-							off_flag[0] = true;
+							master.send(15, 2,
+									50 * (towel_arm_goal == 1 ? -1 : 1));
 						}
-						master.send(15, 2, 120 * (towel_arm_goal == 1 ? -1 : 1));
 					}
 				}
 			} else if (count == 2) {
-				if (towel_arm[1] != towel_arm_goal) { //左側
+				if (towel_order[1]) { //左側
 					if (!(status & 0b00000010)) {
 						status |= 0b00000010;
 					}
@@ -202,7 +208,7 @@ int main() {
 									50 * (towel_arm_goal == 1 ? -1 : 1));
 						} else {
 							master.send(15, 3, 0);
-							towel_arm[1] = towel_arm_goal;
+							towel_order[1] = false;
 							on_flag[1] = false;
 							status &= 0b11111101;
 						}
@@ -211,7 +217,7 @@ int main() {
 							on_flag[1] = true;
 						} else {
 							master.send(15, 3,
-									120 * (towel_arm_goal == 1 ? 1 : -1));
+									50 * (towel_arm_goal == 1 ? 1 : -1));
 						}
 					}
 				}
@@ -248,13 +254,16 @@ int main() {
 						if (moving) {
 							if (slit_up == 1) {
 								master.send(15, 4, 50);
-							}else if(slit_up == 0){
-								master.send(15, 4, 0);
-								spread = 1;
-								moving = false;
-								status &= 0b11111011;
-								servo2.pulsewidth_us(1450);
-								lock[1] = true;
+								spread = 0;
+							} else if (slit_up == 0) {
+								if (spread == 0) {
+									master.send(15, 4, 0);
+									spread = 1;
+									moving = false;
+									status &= 0b11111011;
+									servo2.pulsewidth_us(1450);
+									lock[1] = true;
+								}
 							}
 						} else {
 							if (!lock[0] || lock[1]) {
@@ -335,8 +344,8 @@ int main() {
 				count = 0;
 			}
 			count++;
-			limit_msg.data = limit_clip; //NCにつなぐ
-			limit_pub.publish(&limit_msg);
+			//limit_msg.data = limit_clip; //NCにつなぐ
+			//limit_pub.publish(&limit_msg);
 
 			msg.data = status + (spread << 8);
 			pub.publish(&msg);

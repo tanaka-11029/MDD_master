@@ -221,6 +221,7 @@ main.o: ../main.cpp /home/tanaka/workspace/MDD_Master/mbed_config.h \
  /home/tanaka/workspace/MDD_Master/ros_lib_kinetic/BufferedSerial/BufferedSerial.h \
  /home/tanaka/workspace/MDD_Master/ros_lib_kinetic/BufferedSerial/Buffer/MyBuffer.h \
  /home/tanaka/workspace/MDD_Master/ros_lib_kinetic/std_msgs/Int32.h \
+ /home/tanaka/workspace/MDD_Master/ros_lib_kinetic/std_msgs/Int16.h \
  /home/tanaka/workspace/MDD_Master/ros_lib_kinetic/std_msgs/Bool.h \
  /home/tanaka/workspace/MDD_Master/ros_lib_kinetic/std_msgs/Float32MultiArray.h \
  /home/tanaka/workspace/MDD_Master/ros_lib_kinetic/std_msgs/MultiArrayLayout.h \
@@ -673,6 +674,8 @@ main.o: ../main.cpp /home/tanaka/workspace/MDD_Master/mbed_config.h \
 /home/tanaka/workspace/MDD_Master/ros_lib_kinetic/BufferedSerial/Buffer/MyBuffer.h:
 
 /home/tanaka/workspace/MDD_Master/ros_lib_kinetic/std_msgs/Int32.h:
+
+/home/tanaka/workspace/MDD_Master/ros_lib_kinetic/std_msgs/Int16.h:
 
 /home/tanaka/workspace/MDD_Master/ros_lib_kinetic/std_msgs/Bool.h:
 
