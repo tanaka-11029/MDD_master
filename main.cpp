@@ -35,6 +35,13 @@ bool sheet_open = false;
 bool lock[2] = { false, false };
 bool towel_order[2] = { false, false };
 bool open_order = false;
+bool emergency = false;
+bool send_order = false;
+int led_color = 10;
+int led_last = 0;
+int send_id;
+int send_cmd;
+int send_data;
 
 //const PinName rotarypin[2] = {PA_0,PA_4};
 
@@ -115,13 +122,19 @@ void sendSerial(const std_msgs::Int32 &msg) {
 			spread = data;
 			spread_goal = spread;
 			break;
+		case 7:
+			emergency = (bool) data;
+			break;
 		case 255:
 			solenoid(0);
 			master.send(255, 255, 0);
 			break;
 		}
 	} else {
-		master.send(id, cmd, data);
+		send_order = true;
+		send_id = id;
+		send_cmd = cmd;
+		send_data = data;
 	}
 }
 
@@ -162,6 +175,7 @@ int main() {
 	bool on_flag[2] = { false, false };
 	bool moving = false;
 	int count = 1;
+	int send_count = 0;
 	uint8_t slit_up;
 	uint8_t status = 0;
 	Timer loop;
@@ -171,7 +185,7 @@ int main() {
 	loop.start();
 	while (true) {
 		nh.spinOnce();
-		if (loop.read_ms() > 20) {
+		if (loop.read_ms() > 10) {
 			loop.reset();
 			if (count == 1) {
 				if (towel_order[0]) { //右側
@@ -193,8 +207,9 @@ int main() {
 							on_flag[0] = true;
 						} else if (!slit_towel1.read()) {
 							master.send(15, 2,
-									50 * (towel_arm_goal == 1 ? -1 : 1));
+									100 * (towel_arm_goal == 1 ? -1 : 1));
 						}
+						led_color = 40;
 					}
 				}
 			} else if (count == 2) {
@@ -217,8 +232,9 @@ int main() {
 							on_flag[1] = true;
 						} else {
 							master.send(15, 3,
-									50 * (towel_arm_goal == 1 ? 1 : -1));
+									100 * (towel_arm_goal == 1 ? 1 : -1));
 						}
+						led_color = 40;
 					}
 				}
 			} else if (count == 3) {
@@ -249,6 +265,7 @@ int main() {
 								moving = true;
 							}
 							master.send(15, 4, 200);
+							led_color = 30;
 						}
 					} else if (spread_goal == 1) {
 						if (moving) {
@@ -275,8 +292,10 @@ int main() {
 							}
 							if (spread == 0) {
 								master.send(15, 4, -250); //上昇
+								led_color = 20;
 							} else if (spread == 2) {
 								master.send(15, 4, 100); //下降
+								led_color = 30;
 							}
 							if (slit_up == 0) {
 								moving = true;
@@ -304,6 +323,7 @@ int main() {
 								moving = true;
 							}
 							master.send(15, 4, -250);
+							led_color = 20;
 						}
 					}
 				} else if (slit_up > 0) {
@@ -341,7 +361,30 @@ int main() {
 						}
 					}
 				}
+			} else if (count == 5) {
+				if (emergency) {
+					led_color = 200;
+				} else if (status == 0) {
+					led_color = 10;
+				}
+				if (led_color != led_last) {
+					led_last = led_color;
+					send_count = 0;
+				}
+				if (send_count < 10) {
+					send_count++;
+					if (emergency) {
+						master.send(84, 200, 150);
+					} else {
+						master.send(84, led_color, 40);
+					}
+				}
+			} else if (count == 6) {
 				count = 0;
+				if (send_order) {
+					send_order = false;
+					master.send(send_id, send_cmd, send_data);
+				}
 			}
 			count++;
 			//limit_msg.data = limit_clip; //NCにつなぐ
@@ -350,8 +393,8 @@ int main() {
 			msg.data = status + (spread << 8);
 			pub.publish(&msg);
 
-			pot.data[0] = slit_up;
-			pot.data[1] = moving;
+			pot.data[0] = slit_towel1;
+			pot.data[1] = slit_towel2;
 			pot.data[2] = potentiometer;
 			potato.publish(&pot);
 		}
