@@ -26,6 +26,8 @@ DigitalIn limit_clip(PB_1); //洗濯バサミ
 AnalogIn potentiometer(PA_6); //ポテンショメータ
 InterruptIn start_switch(PB_0); //スタート
 
+DigitalOut led1(PB_7);
+
 //DigitalOut led1(PB_7);
 
 int8_t spread = 0; //0:展開前　1:第一展開　2:第二展開
@@ -194,10 +196,10 @@ int main() {
 					}
 					if (on_flag[0]) {
 						if (slit_towel1.read()) {
-							master.send(15, 2,
+							master.send(10, 2,
 									50 * (towel_arm_goal == 1 ? 1 : -1));
 						} else {
-							master.send(15, 2, 0);
+							master.send(10, 2, 0);
 							towel_order[0] = false;
 							on_flag[0] = false;
 							status &= 0b11111110;
@@ -206,7 +208,7 @@ int main() {
 						if (slit_towel1.read()) {
 							on_flag[0] = true;
 						} else if (!slit_towel1.read()) {
-							master.send(15, 2,
+							master.send(10, 2,
 									100 * (towel_arm_goal == 1 ? -1 : 1));
 						}
 						led_color = 40;
@@ -219,10 +221,10 @@ int main() {
 					}
 					if (on_flag[1]) {
 						if (slit_towel2.read()) {
-							master.send(15, 3,
+							master.send(10, 3,
 									50 * (towel_arm_goal == 1 ? -1 : 1));
 						} else {
-							master.send(15, 3, 0);
+							master.send(10, 3, 0);
 							towel_order[1] = false;
 							on_flag[1] = false;
 							status &= 0b11111101;
@@ -231,7 +233,7 @@ int main() {
 						if (slit_towel2.read()) {
 							on_flag[1] = true;
 						} else {
-							master.send(15, 3,
+							master.send(10, 3,
 									100 * (towel_arm_goal == 1 ? 1 : -1));
 						}
 						led_color = 40;
@@ -245,7 +247,7 @@ int main() {
 					}
 					if (spread_goal == 0) {
 						if (slit_up == 2) {
-							master.send(15, 4, 0);
+							master.send(17, 5, 0);
 							spread = 0;
 							moving = false;
 							status &= 0b11111011;
@@ -264,17 +266,17 @@ int main() {
 							if (slit_up == 1) {
 								moving = true;
 							}
-							master.send(15, 4, 200);
+							master.send(17, 5, 200);
 							led_color = 30;
 						}
 					} else if (spread_goal == 1) {
 						if (moving) {
 							if (slit_up == 1) {
-								master.send(15, 4, 50);
+								master.send(17, 5, 50);
 								spread = 0;
 							} else if (slit_up == 0) {
 								if (spread == 0) {
-									master.send(15, 4, 0);
+									master.send(17, 5, 0);
 									spread = 1;
 									moving = false;
 									status &= 0b11111011;
@@ -291,10 +293,10 @@ int main() {
 								wait(0.5);
 							}
 							if (spread == 0) {
-								master.send(15, 4, -250); //上昇
+								master.send(17, 5, -250); //上昇
 								led_color = 20;
 							} else if (spread == 2) {
-								master.send(15, 4, 100); //下降
+								master.send(17, 5, 100); //下降
 								led_color = 30;
 							}
 							if (slit_up == 0) {
@@ -304,10 +306,13 @@ int main() {
 					} else if (spread_goal == 2) {
 						if (moving) {
 							if (slit_up == 1) {
-								master.send(15, 4, 0);
+								led1 = 1;
+								master.send(17, 5, 0);
 								spread = 2;
 								moving = false;
 								status &= 0b11111011;
+							} else {
+								//master.send(17, 5, -250);
 							}
 						} else {
 							if (!lock[0] || !lock[1]) {
@@ -322,26 +327,27 @@ int main() {
 							} else if (spread == 1 && slit_up == 0) {
 								moving = true;
 							}
-							master.send(15, 4, -250);
+							led1 = 0;
+							master.send(17, 5, -250);
 							led_color = 20;
 						}
 					}
 				} else if (slit_up > 0) {
-					master.send(15, 4, 0);
+					master.send(17, 5, 0);
 				} else if (spread > 0) {
-					master.send(15, 4, -150);
+					master.send(17, 5, -150);
 				}
 			} else if (count == 4) {
 				if (potentiometer > 0.90 || potentiometer < 0.01
 						|| !open_order) { //0.03~ 0.02
 				} else if (sheet_open) {
 					if (potentiometer < 0.03) {
-						master.send(15, 5, 50);
+						master.send(10, 5, 50);
 						if (!(status & 0b00001000)) {
 							status |= 0b00001000;
 						}
 					} else {
-						master.send(15, 5, 0);
+						master.send(10, 5, 0);
 						open_order = false;
 						if (status & 0b00001000) {
 							status &= 0b11110111;
@@ -349,12 +355,12 @@ int main() {
 					}
 				} else {
 					if (potentiometer > 0.02) {
-						master.send(15, 5, -50);
+						master.send(10, 5, -50);
 						if (!(status & 0b00001000)) {
 							status |= 0b00001000;
 						}
 					} else {
-						master.send(15, 5, 0);
+						master.send(10, 5, 0);
 						open_order = false;
 						if (status & 0b00001000) {
 							status &= 0b11110111;
@@ -371,7 +377,7 @@ int main() {
 					led_last = led_color;
 					send_count = 0;
 				}
-				if (send_count < 10) {
+				if (send_count < 3) {
 					send_count++;
 					if (emergency) {
 						master.send(84, 200, 150);
