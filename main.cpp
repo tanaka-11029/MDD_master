@@ -28,12 +28,14 @@ InterruptIn start_switch(PB_0); //スタート
 
 DigitalOut led1(PB_7);
 
-//DigitalOut led1(PB_7);
+Timer sheet_time;
+Timer start_time;
 
 int8_t spread = 0; //0:展開前　1:第一展開　2:第二展開
 int8_t spread_goal = 0;
 bool towel_arm_goal = false; //1:展開　2:戻す
 bool sheet_open = false;
+bool sheet_now = false;
 bool lock[2] = { false, false };
 bool towel_order[2] = { false, false };
 bool open_order = false;
@@ -44,6 +46,7 @@ int led_last = 0;
 int send_id;
 int send_cmd;
 int send_data;
+int open_count = 10;
 
 //const PinName rotarypin[2] = {PA_0,PA_4};
 
@@ -116,6 +119,9 @@ void sendSerial(const std_msgs::Int32 &msg) {
 		case 4:
 			sheet_open = (bool) data;
 			open_order = true;
+			if (sheet_open) {
+				open_count = 0;
+			}
 			break;
 		case 5:
 			solenoid(data);
@@ -151,7 +157,10 @@ ros::Publisher start("start_switch", &start_msg);
 
 void start_fall() {
 	start_msg.data = !start_switch.read();
-	start.publish(&start_msg);
+	if(start_time.read_ms() > 1000 && start_msg.data){
+		start.publish(&start_msg);
+		start_time.reset();
+	}
 }
 
 int main() {
@@ -176,11 +185,13 @@ int main() {
 	slit_up2.mode(PullDown);
 	bool on_flag[2] = { false, false };
 	bool moving = false;
+	bool spread_order = false;
 	int count = 1;
 	int send_count = 0;
 	uint8_t slit_up;
 	uint8_t status = 0;
 	Timer loop;
+	start_time.start();
 	/*if (!slit_up1) {
 	 spread = 1;
 	 }*/
@@ -213,6 +224,8 @@ int main() {
 						}
 						led_color = 40;
 					}
+				} else {
+					master.send(10, 2, 0);
 				}
 			} else if (count == 2) {
 				if (towel_order[1]) { //左側
@@ -238,10 +251,15 @@ int main() {
 						}
 						led_color = 40;
 					}
+				} else {
+					master.send(10, 3, 0);
 				}
 			} else if (count == 3) {
 				slit_up = (slit_up1 << 1) + slit_up2; //上　下
-				if (spread != spread_goal) {
+				if (!spread_order && spread != spread_goal
+						&& (slit_up != 0 || spread == 0)) {
+					spread_order = true;
+				} else if (spread_order) {
 					if (!(status & 0b00000100)) {
 						status |= 0b00000100;
 					}
@@ -253,6 +271,7 @@ int main() {
 							status &= 0b11111011;
 							servo1.pulsewidth_us(1450); //ロックを緩めておく
 							servo2.pulsewidth_us(1450);
+							spread_order = false;
 							lock[0] = true;
 							lock[1] = true;
 						} else {
@@ -281,6 +300,7 @@ int main() {
 									moving = false;
 									status &= 0b11111011;
 									servo2.pulsewidth_us(1450);
+									spread_order = false;
 									lock[1] = true;
 								}
 							}
@@ -308,6 +328,7 @@ int main() {
 							if (slit_up == 1) {
 								led1 = 1;
 								master.send(17, 5, 0);
+								spread_order = false;
 								spread = 2;
 								moving = false;
 								status &= 0b11111011;
@@ -337,7 +358,7 @@ int main() {
 				} else if (spread > 0) {
 					master.send(17, 5, -150);
 				}
-			} else if (count == 4) {
+			} else if (count == 4) {/*
 				if (potentiometer > 0.90 || potentiometer < 0.01
 						|| !open_order) { //0.03~ 0.02
 				} else if (sheet_open) {
@@ -348,9 +369,13 @@ int main() {
 						}
 					} else {
 						master.send(10, 5, 0);
-						open_order = false;
-						if (status & 0b00001000) {
-							status &= 0b11110111;
+						if (open_count > 5) {
+							open_order = false;
+							if (status & 0b00001000) {
+								status &= 0b11110111;
+							}
+						} else {
+							open_count++;
 						}
 					}
 				} else {
@@ -366,6 +391,43 @@ int main() {
 							status &= 0b11110111;
 						}
 					}
+				}*/
+				if (sheet_open != sheet_now) {
+					if (sheet_open) {
+						master.send(10, 5, -50);
+						if (!(status & 0b00001000)) {
+							status |= 0b00001000;
+							sheet_time.reset();
+							sheet_time.start();
+						}
+						if (sheet_time.read_ms() > 1500) {
+							master.send(10, 5, 0);
+							sheet_now = true;
+							sheet_time.stop();
+							if (status & 0b00001000) {
+								status &= 0b11110111;
+							}
+						}
+					} else {
+						sheet_now = sheet_open;
+						/*
+						master.send(10, 5, 50);
+						if (!(status & 0b00001000)) {
+							status |= 0b00001000;
+							sheet_time.reset();
+							sheet_time.start();
+						}
+						if (sheet_time.read_ms() > 1000) {
+							master.send(10, 5, 0);
+							sheet_now = false;
+							sheet_time.stop();
+							if (status & 0b00001000) {
+								status &= 0b11110111;
+							}
+						}*/
+					}
+				} else {
+					master.send(10, 5 ,0);
 				}
 			} else if (count == 5) {
 				if (emergency) {
@@ -390,6 +452,8 @@ int main() {
 				if (send_order) {
 					send_order = false;
 					master.send(send_id, send_cmd, send_data);
+				} else if (emergency) {
+					master.send(255, 255, 0);
 				}
 			}
 			count++;
@@ -399,8 +463,8 @@ int main() {
 			msg.data = status + (spread << 8);
 			pub.publish(&msg);
 
-			pot.data[0] = slit_towel1;
-			pot.data[1] = slit_towel2;
+			pot.data[0] = (slit_towel1) + (slit_towel2 << 1);
+			pot.data[1] = slit_up;
 			pot.data[2] = potentiometer;
 			potato.publish(&pot);
 		}
