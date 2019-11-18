@@ -193,6 +193,7 @@ int main() {
 	bool moving = false;
 	bool spread_order = false;
 	bool down_flag = false;
+	int updown = 0;
 	int count = 1;
 	int send_count = 0;
 	uint8_t slit_up;
@@ -323,6 +324,7 @@ int main() {
 							spread_order = false;
 							lock[0] = true;
 							lock[1] = true;
+							updown = 0;
 						} else {
 							if (lock[0] || lock[1]) {
 								servo1.pulsewidth_us(2300); //ロック解除
@@ -334,6 +336,7 @@ int main() {
 							if (slit_up == 1) {
 								moving = true;
 							}
+							updown = 2;
 							master.send(17, 5, 200);
 							led_color = 30;
 						}
@@ -341,12 +344,18 @@ int main() {
 						if (moving) {
 							if (slit_up == 0) {
 								if (down_flag) {
-									master.send(17, 5, -100);
+									master.send(17, 5, -150);
 									spread = 0;
 								} else if (spread == 0) {
 									master.send(17, 5, -250);
 								} else if (spread == 2) {
 									master.send(17, 5, 250);
+								} else if (spread == 1) {
+									if (updown == 1) {
+										master.send(17, 5, 250);
+									} else if (updown == 2) {
+										master.send(17, 5, -250);
+									}
 								}
 							} else if (slit_up == 1) {
 								if (spread == 0) {
@@ -355,6 +364,7 @@ int main() {
 									moving = false;
 									down_flag = false;
 									status &= 0b11111011;
+									updown = 0;
 									servo2.pulsewidth_us(1450);
 									spread_order = false;
 									lock[1] = true;
@@ -373,10 +383,18 @@ int main() {
 							}
 							if (spread == 0) {
 								master.send(17, 5, -250); //上昇
+								updown = 1;
 								led_color = 20;
 							} else if (spread == 2) {
 								master.send(17, 5, 250); //下降
+								updown = 2;
 								led_color = 30;
+							} else if (spread == 1) {
+								if (updown == 1) {
+									master.send(17, 5, 250);
+								} else if (updown == 2) {
+									master.send(17, 5, -250);
+								}
 							}
 							if (slit_up == 0) {
 								moving = true;
@@ -390,7 +408,12 @@ int main() {
 								spread_order = false;
 								spread = 2;
 								moving = false;
+								updown = 0;
 								status &= 0b11111011;
+								servo1.pulsewidth_us(1450); //ロックを緩めておく
+								servo2.pulsewidth_us(1450);
+								lock[0] = true;
+								lock[1] = true;
 							} else {
 								master.send(17, 5, -250);
 							}
@@ -407,6 +430,7 @@ int main() {
 							} else if (spread == 1 && slit_up == 0) {
 								moving = true;
 							}
+							updown = 1;
 							led1 = 0;
 							master.send(17, 5, -250);
 							led_color = 20;
